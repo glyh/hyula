@@ -47,15 +47,12 @@ library
   import: warnings
   -- Modules exported by the library.
   exposed-modules:
-    Hyula
-
-  -- Modules included in this library but not exported.
-  other-modules:
-    Hyula.Ast
     Hyula.Ast.Base
     Hyula.Ast.Raw
     Hyula.Parser
 
+  -- Modules included in this library but not exported.
+  other-modules:
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:
   -- Other library packages from which modules are imported.
@@ -88,22 +85,19 @@ executable hyula
   -- Base language which the package is written in.
   default-language: GHC2024
 
-test-suite hyula-test
+test-suite hyula-spec
   -- Import common warning flags.
   import: warnings
   -- Base language which the package is written in.
   default-language: GHC2024
   -- Modules included in this executable, other than Main.
   other-modules:
-    LearnMonad
-    UrlParser
-
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:
   -- The interface type and version of the test suite.
   type: exitcode-stdio-1.0
   -- Directories containing source files.
-  hs-source-dirs: test
+  hs-source-dirs: spec
   -- The entrypoint to the test suite.
   main-is: Main.hs
   -- Test dependencies.

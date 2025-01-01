@@ -17,3 +17,4 @@ data Atom
   | Bool Bool
   | Char Char
   | Unit
+  deriving (Show, Eq)

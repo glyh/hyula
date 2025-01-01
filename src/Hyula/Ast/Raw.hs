@@ -9,6 +9,7 @@ import Hyula.Ast.Base (Atom)
 type Symbol = Text
 
 data SeqProp = SeqProp {scoped :: Bool}
+  deriving (Show, Eq)
 
 data Exp
   = Atom Atom
@@ -19,9 +20,11 @@ data Exp
   | List [Exp]
   | Call Exp [Exp]
   | Abs Symbol Exp
+  deriving (Show, Eq)
 
 data Pat
   = Union (NonEmpty Pat)
   | Lit Atom
   | PatList [Pat]
   | Any
+  deriving (Show, Eq)
