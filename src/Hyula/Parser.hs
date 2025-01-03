@@ -23,10 +23,10 @@ reduce_left start ele op =
  where
   go acc =
     choice
-      [ do
+      [ try $ do
           f <- op
           x <- ele
-          return (f acc x)
+          go (f acc x)
       , return acc
       ]
 
@@ -35,7 +35,7 @@ reduce_right start ele op = p
  where
   p = do
     choice
-      [ do
+      [ try $ do
           e <- ele
           o <- op
           rest <- p
@@ -85,9 +85,9 @@ sc =
   skipMany
     ( choice
         [ satisfy (`elem` [' ', '\r', '\t']) $> () <?> "whitespace"
-        , (L.skipLineComment "#" <* notFollowedBy (choice ["|", "_"])) <?> "line comment"
+        , L.skipLineComment "# " <?> "line comment"
         , lex "#_" *> pExp $> () <?> "AST comment"
-        , L.skipBlockComment "#|" "|#" <?> "block comment"
+        , nestedBlockComment "#|" "|#" <?> "block comment"
         ]
     )
 
@@ -117,24 +117,25 @@ pBool =
 
 pChar :: Parser Char
 pChar = do
-  _ <- char '\''
+  _ <- "'"
   c <-
     choice
-      [ satisfy $ not . (`elem` ['\\', '\''])
-      , char '\\' *> choice [char '\\', char '\'']
+      [ "\\" *> choice [char '\\', char '\'']
+      , anySingle
       ]
-  _ <- char '\''
+  _ <- "'"
   return c
 
 pAtom :: Parser Atom
 pAtom =
-  choice
-    [ I64 <$> L.decimal <?> "I64 atom"
-    , F64 <$> L.float <?> "F64 atom"
-    , Bool <$> pBool <?> "Bool atom"
-    , Char <$> pChar <?> "Char atom"
-    , Unit <$ string "()"
-    ]
+  lex
+    $ choice
+      [ F64 <$> try L.float <?> "F64 atom"
+      , I64 <$> L.decimal <?> "I64 atom"
+      , Bool <$> pBool <?> "Bool atom"
+      , Char <$> pChar <?> "Char atom"
+      , Unit <$ string "()"
+      ]
 
 -- Expressions
 
@@ -161,6 +162,9 @@ pBlockAlt exp_terminator block_terminator =
     , nl_plus *> manyTill (pExp <* nl_plus) block_terminator
     ]
 
+wrapScoped :: [Exp] -> Exp
+wrapScoped es = (Seq (SeqProp{scoped = True}) es)
+
 pIf :: Parser Exp
 pIf = do
   _ <- kw "if"
@@ -168,13 +172,13 @@ pIf = do
   let kw_else = kw "else"
   then_branch <- pBlockAlt kw_else kw_else
   else_branch <- pBlock (kw "end")
-  return (If cond then_branch else_branch)
+  return (If cond (wrapScoped then_branch) (wrapScoped else_branch))
 
 pSeq :: Parser Exp
 pSeq = do
   _ <- kw "do"
   body <- pBlock (kw "end")
-  return (Seq (SeqProp{scoped = True}) body)
+  return (wrapScoped body)
 
 pList :: Parser Exp
 pList = List <$> groupedList (lex "[") (lex "]") (lex ",") pExp
@@ -208,8 +212,12 @@ pMatch =
   reduce_right pUFCS pPat (lex "=" *> return (\pat rhs -> Match pat rhs))
 
 pSeqExp :: Parser Exp
-pSeqExp =
-  Seq (SeqProp{scoped = False}) . toList <$> sepList (lex ";") pMatch
+pSeqExp = do
+  lst <- sepList (lex ";") pMatch
+  let result = case lst of
+        hd :| [] -> hd
+        hd :| rst -> Seq (SeqProp{scoped = False}) (hd : rst)
+  (return result)
 
 pExpLike :: Parser Exp
 pExpLike = pSeqExp
@@ -236,12 +244,27 @@ pPatList = PatList <$> groupedList (lex "[") (lex "]") (lex ",") pPat
 pPatPrimary :: Parser Pat
 pPatPrimary = choice [pLit, pAny, pPatList]
 
-pUnioned :: Parser Pat
-pUnioned = Union <$> sepList (lex "|") pPatPrimary
+pUnioned :: Parser Pat -- TODO: maybe need to preserve '|' for union type
+pUnioned = check_union <$> sepList (lex "|") pPatPrimary
+ where
+  check_union eles = case eles of
+    e :| [] -> e
+    u -> Union u
 
 pPat :: Parser Pat
 pPat = pUnioned
 
+-- sepList :: Parser a -> Parser e -> Parser (NonEmpty e)
+
 -- Top Level
 pTopLevel :: Parser Exp
-pTopLevel = Seq (SeqProp{scoped = False}) <$> (nl_star *> pBlock eof)
+pTopLevel = do
+  _ <- sc
+  _ <- nl_star
+  body <- sepList nl_plus pExp
+  _ <- nl_star
+  _ <- eof
+  let result = case body of
+        stmt :| [] -> stmt
+        stmt :| stmts -> Seq (SeqProp{scoped = False}) (stmt : stmts)
+  (return result)

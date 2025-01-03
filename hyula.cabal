@@ -49,6 +49,7 @@ library
   exposed-modules:
     Hyula.Ast.Base
     Hyula.Ast.Raw
+    Hyula.Common
     Hyula.Parser
 
   -- Modules included in this library but not exported.
@@ -58,6 +59,7 @@ library
   -- Other library packages from which modules are imported.
   build-depends:
     base ^>=4.20.0.0,
+    formatting ^>=7.2.0,
     megaparsec ^>=9.7.0,
     relude ^>=1.2.0.0,
 
@@ -92,6 +94,8 @@ test-suite hyula-spec
   default-language: GHC2024
   -- Modules included in this executable, other than Main.
   other-modules:
+    ParserSpec
+
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:
   -- The interface type and version of the test suite.
@@ -99,12 +103,15 @@ test-suite hyula-spec
   -- Directories containing source files.
   hs-source-dirs: spec
   -- The entrypoint to the test suite.
-  main-is: Main.hs
+  main-is: Spec.hs
   -- Test dependencies.
   build-depends:
     QuickCheck ^>=2.15.0.1,
     base ^>=4.20.0.0,
     hspec ^>=2.11.10,
+    hspec-discover ==2.11.10,
     hyula,
     megaparsec ^>=9.7.0,
     relude ^>=1.2.0.0,
+
+  build-tool-depends: hspec-discover:hspec-discover
